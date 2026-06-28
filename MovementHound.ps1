@@ -3,7 +3,7 @@ function Invoke-MovementHound {
 
 MovementHound.ps1
 Author: @pol4ir
-Version: 1.1
+Version: 1.1.1
 
 .SYNOPSIS
     Lateral movement surface scanner for AD environments.
@@ -29,9 +29,6 @@ Version: 1.1
 .PARAMETER ServiceName
     Service name for SCShell check (SCM only).
 
-.PARAMETER lhost / lport
-    Listener IP/port for DCOM callback check.
-
 .PARAMETER ShadowTimeoutSeconds
     Max seconds to wait per RDP shadow attempt (rdpshadow check only). Default: 15.
 
@@ -43,21 +40,36 @@ Version: 1.1
     Param (
         [Parameter(Mandatory = $false, Position = 0, ValueFromPipeLine = $true, ValueFromPipelineByPropertyName = $true)]
         [String]$ComputerName,
-        [Parameter(Mandatory = $false, Position = 1)][int]$timeout = 140000,
-        [Parameter(Mandatory = $false, Position = 2)][int]$threads = 5,
-        [Parameter(Mandatory = $false, Position = 3)][string]$Computerfile,
-        [Parameter(Mandatory = $false, Position = 4)][string]$p,
-        [Parameter(Mandatory = $false, Position = 5)][string]$lhost,
-        [Parameter(Mandatory = $false, Position = 6)][int]$lport = 4466,
-        [Parameter(Mandatory = $false, Position = 7)][string]$ServiceName,
-        [Parameter(Mandatory = $false, Position = 8)][string]$Username = "",
-        [Parameter(Mandatory = $false, Position = 9)][string]$Password = "",
-        [Parameter(Mandatory = $false, Position = 10)][ValidateRange(1, 300)][int]$ShadowTimeoutSeconds = 15,
-        [Parameter(Mandatory = $false, Position = 11)][int]$RdpPort = 3389,
-        [Parameter(Mandatory = $false, Position = 12)][string]$RdpDomain = "",
-        [Parameter(Mandatory = $false, Position = 13)][switch]$BloodHound,
-        [Parameter(Mandatory = $false, Position = 14)][string]$BHOutputPath = (Get-Location).Path
+        [Parameter(Mandatory = $false, Position = 1)][int]$threads = 5,
+        [Parameter(Mandatory = $false, Position = 2)][string]$Computerfile,
+        [Parameter(Mandatory = $false, Position = 3)][string]$p,
+        [Parameter(Mandatory = $false, Position = 4)][string]$ServiceName,
+        [Parameter(Mandatory = $false, Position = 5)][string]$Username = "",
+        [Parameter(Mandatory = $false, Position = 6)][string]$Password = "",
+        [Parameter(Mandatory = $false, Position = 7)][ValidateRange(1, 300)][int]$ShadowTimeoutSeconds = 15,
+        [Parameter(Mandatory = $false, Position = 8)][int]$RdpPort = 3389,
+        [Parameter(Mandatory = $false, Position = 9)][string]$RdpDomain = "",
+        [Parameter(Mandatory = $false, Position = 10)][switch]$BloodHound,
+        [Parameter(Mandatory = $false, Position = 11)][string]$BHOutputPath = (Get-Location).Path
     )
+    <# Param (
+        [Parameter(Mandatory = $false, Position = 0, ValueFromPipeLine = $true, ValueFromPipelineByPropertyName = $true)]
+        [String]$ComputerName,
+        [Parameter(Mandatory = $false, Position = 1)][int]$timeout = 140000,
+        [Parameter(Mandatory = $false, Position = 1)][int]$threads = 5,
+        [Parameter(Mandatory = $false, Position = 2)][string]$Computerfile,
+        [Parameter(Mandatory = $false, Position = 3)][string]$p,
+        [Parameter(Mandatory = $false, Position = 5)][string]$lhost,
+        [Parameter(Mandatory = $false, Position = 6)][int]$lport = 4466
+        [Parameter(Mandatory = $false, Position = 4)][string]$ServiceName,
+        [Parameter(Mandatory = $false, Position = 5)][string]$Username = "",
+        [Parameter(Mandatory = $false, Position = 6)][string]$Password = "",
+        [Parameter(Mandatory = $false, Position = 7)][ValidateRange(1, 300)][int]$ShadowTimeoutSeconds = 15,
+        [Parameter(Mandatory = $false, Position = 8)][int]$RdpPort = 3389,
+        [Parameter(Mandatory = $false, Position = 9)][string]$RdpDomain = "",
+        [Parameter(Mandatory = $false, Position = 10)][switch]$BloodHound,
+        [Parameter(Mandatory = $false, Position = 11)][string]$BHOutputPath = (Get-Location).Path
+    ) #>
 
     Begin {
         $ErrorActionPreference2 = $ErrorActionPreference
@@ -594,7 +606,7 @@ public class BHSspi {
             }
         }
 
-        #  DCOM listener setup 
+        <#      #  DCOM listener setup 
         $listener = $null
         if ($p -match "dcom" -or -not $p) {
             if (-not $lhost) { Write-Host "[-] -lhost required for DCOM check"; return }
@@ -677,7 +689,7 @@ public class TcpListenerAsync {
                 [TcpListenerAsync]::ResetStaticState()
                 return
             }
-        }
+        } #>
 
         #  SCM P/Invoke code 
         $scmCode = @"
@@ -820,14 +832,54 @@ public class SspiHelper {
             }
 
             $sshCandidate = "C:\Windows\System32\OpenSSH\ssh.exe"
-            if (Test-Path $sshCandidate) { $sshPath = $sshCandidate; $sshMethod = "ssh" }
+
+            function Test-SshUsable {
+                param(
+                    [Parameter(Mandatory)][string]$Exe,
+                    [bool]$HasCreds
+                )
+                #
+                $out = (& cmd /c "`"$Exe`" -V 2>&1") | Out-String
+
+                if ($out -match 'OpenSSH_(?:for_Windows_)?(\d+\.\d+)') {
+                    $versione = [version]$Matches[1]
+                    if ($versione -lt [version]'8.1' -and -not $HasCreds) {
+                        return $false
+                    }
+                    return $true
+                }
+
+               
+                return $false
+            }
+
+            if ((Test-Path $sshCandidate) -and (Test-SshUsable -Exe $sshCandidate -HasCreds $hasCreds)) {
+                $sshPath = $sshCandidate; $sshMethod = "ssh"
+
+            }
 
             if (-not $sshPath) {
                 try {
                     Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0 -ErrorAction Stop | Out-Null
-                    if (Test-Path $sshCandidate) { $sshPath = $sshCandidate; $sshMethod = "ssh" }
+                    if ((Test-Path $sshCandidate) -and (Test-SshUsable -Exe $sshCandidate -HasCreds $hasCreds)) {
+                        $sshPath = $sshCandidate; $sshMethod = "ssh"
+           
+                    }
                 }
-                catch {}
+                catch {
+                    #Write-Host "Add-WindowsCapability failed" }
+                }
+            }
+
+            if (-not $sshPath) {
+                $plinkCmd = Get-Command plink -ErrorAction SilentlyContinue
+                if ($plinkCmd) {
+                    $plinkPath = $plinkCmd.Source; $sshMethod = "plink"
+       
+                }
+                else {
+                    #Write-Host "plink not found"
+                }
             }
 
             if (-not $sshPath) {
@@ -853,7 +905,7 @@ public class SspiHelper {
             
         }
 
-        $rdpTmsMs = [Math]::Max(10000, [Math]::Min(30000, [int]($timeout * 0.66)))
+        $rdpTmsMs = [Math]::Max(10000, [Math]::Min(30000, [int](140000 * 0.66)))
 
         $runspacePool = [runspacefactory]::CreateRunspacePool(1, $threads)
         $runspacePool.Open()
@@ -864,8 +916,15 @@ public class SspiHelper {
             $ps.RunspacePool = $runspacePool
 
             $ps.AddScript({
-                    param(
+                    <# param(
                         $ComputerName, $p, $lhost, $lport, $timeout, $ServiceName, $scmCode,
+                        $Username, $Password, $hasCreds,
+                        $sshPath, $plinkPath, $sshMethod, $isRunasNetonly, $runasGSSAPIUser,
+                        $ShadowTimeoutSeconds,
+                        $rdpExePath, $rdpPort, $rdpDomain, $rdpTmsMs, $hostSessionId
+                    ) #>
+                    param(
+                        $ComputerName, $p, $ServiceName, $scmCode,
                         $Username, $Password, $hasCreds,
                         $sshPath, $plinkPath, $sshMethod, $isRunasNetonly, $runasGSSAPIUser,
                         $ShadowTimeoutSeconds,
@@ -1113,6 +1172,107 @@ public class SspiHelper {
                         $remoteReg.Close()
                     }
 
+                    #FindDCOMAccess - New approach
+                    $sbDCOMNew = {
+                        param($ComputerName)
+
+                        function Test-DcomActivation {
+                            [CmdletBinding(DefaultParameterSetName = 'CLSID')]
+                            param(
+                                [Parameter(Mandatory)][string]$ComputerName,
+                                [Parameter(Mandatory, ParameterSetName = 'CLSID')][string]$CLSID,
+                                [Parameter(Mandatory, ParameterSetName = 'ProgID')][string]$ProgID,
+                                [string]$Label,
+                                [scriptblock]$AccessProbe   # receives the object, does ONE harmless property-get
+                            )
+
+                            $name = if ($Label) { $Label }
+                            elseif ($PSCmdlet.ParameterSetName -eq 'CLSID') { $CLSID }
+                            else { $ProgID }
+
+                            $r = [ordered]@{ Target = $name; Activation = '?'; Access = '-'; HResult = ''; Note = '' }
+                            $obj = $null
+
+                            try {
+                                $type = if ($PSCmdlet.ParameterSetName -eq 'CLSID') {
+                                    [Type]::GetTypeFromCLSID([Guid]$CLSID, $ComputerName)
+                                }
+                                else {
+                                    [Type]::GetTypeFromProgID($ProgID, $ComputerName)
+                                }
+
+                                if ($null -eq $type) {
+                                    $r.Activation = 'FAIL'
+                                    $r.Note = 'ProgID/CLSID not resolved locally'
+                                    return [pscustomobject]$r
+                                }
+
+                                $obj = [System.Activator]::CreateInstance($type)   # <- remote activation
+                                $r.Activation = 'OK'
+
+                                if ($AccessProbe) {
+                                    try {
+                                        $null = & $AccessProbe $obj                 # property-get -> Access ACL
+                                        $r.Access = 'OK'
+                                    }
+                                    catch [System.Runtime.InteropServices.COMException] {
+                                        $r.Access = 'DENIED'
+                                        $r.HResult = '0x{0:X8}' -f $_.Exception.HResult
+                                    }
+                                }
+                            }
+                            catch [System.Runtime.InteropServices.COMException] {
+                                $r.Activation = 'FAIL'
+                                $r.HResult = '0x{0:X8}' -f $_.Exception.HResult
+                                $r.Note = switch ($_.Exception.HResult) {
+                                    -2147024891 { 'E_ACCESSDENIED - Launch/Activation denied' }
+                                    -2147023174 { 'RPC_S_SERVER_UNAVAILABLE - DCOM/RPC unreachable (firewall / port 135)' }
+                                    -2147221164 { 'REGDB_E_CLASSNOTREG - class not registered on target' }
+                                    -2146959355 { 'CO_E_SERVER_EXEC_FAILURE - server launch failed' }
+                                    default { 'COMException' }
+                                }
+                            }
+                            catch {
+                                $r.Activation = 'FAIL'
+                                $r.Note = '{0}: {1}' -f $_.Exception.GetType().Name, $_.Exception.Message
+                            }
+                            finally {
+                                if ($obj -and [System.Runtime.InteropServices.Marshal]::IsComObject($obj)) {
+                                    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($obj)
+                                }
+                            }
+
+                            [pscustomobject]$r
+                        }
+
+                        # Standard CLSID = primary attempt (no local dependency). ProgID probes
+                        # get the local fallback; ShellWindows / ShellBrowserWindow do not.
+                        $probes = @(
+                            @{ Label = 'MMC20.Application'; CLSID = '49B2791A-B1AE-4C90-9B8E-E860BA07F889'; ProgID = 'MMC20.Application'; Access = { param($o) $o.Document } }
+                            @{ Label = 'ShellWindows'; CLSID = '9BA05972-F6A8-11CF-A442-00A0C90A8F39'; Access = { param($o) $o.Count } }
+                            @{ Label = 'ShellBrowserWindow'; CLSID = 'C08AFD90-F2A1-11D1-8455-00A0C91F3880'; Access = { param($o) $o.ReadyState } }
+                            @{ Label = 'Excel.Application'; CLSID = '00024500-0000-0000-C000-000000000046'; ProgID = 'Excel.Application'; Access = { param($o) $o.Version } }
+                        )
+
+                        $results = foreach ($p in $probes) {
+                            $res = Test-DcomActivation -ComputerName $ComputerName -Label $p.Label -CLSID $p.CLSID -AccessProbe $p.Access
+                            if ($res.Activation -ne 'OK' -and $p.ContainsKey('ProgID')) {
+                                $alt = Test-DcomActivation -ComputerName $ComputerName -Label $p.Label -ProgID $p.ProgID -AccessProbe $p.Access
+                                if ($alt.Activation -eq 'OK') { $res = $alt }
+                            }
+                            $res
+                        }
+
+                        $reachable = @($results | Where-Object { $_.Activation -eq 'OK' -and $_.Access -eq 'OK' })
+
+                        # Emit the corrective-action marker only when >= 1 object is reachable
+                        # (same as the WMI job: silent on no-hit).
+                        if ($reachable.Count -ge 1) {
+                            "[+] $ComputerName - DCOM: Access via {0}" -f ($reachable.Target -join ', ')
+                   
+                        }
+                    }
+
                     #  Find-NetworkProvider 
                     # Order key:     SetValue OR WriteDac OR WriteOwner
                     # Services root: (CreateSubKey+SetValue) OR WriteDac OR WriteOwner
@@ -1228,7 +1388,7 @@ public class SspiHelper {
                         }
                     }
 
-                    #  Find-DCOMLocalAdminAccess 
+                    <# #  Find-DCOMLocalAdminAccess 
                     $sbDCOM = {
                         param($ComputerName, $lhost, $lport, $timeout)
                         [TcpListenerAsync]::SetDefaultSignal($ComputerName)
@@ -1271,7 +1431,7 @@ public class SspiHelper {
                         catch {}
 
                         [TcpListenerAsync]::WaitForSignal($ComputerName, $timeout)
-                    }
+                    } #>
 
                     #  Find-WMILocalAdminAccess (credential-aware) 
                     $sbWMI = {
@@ -1375,7 +1535,11 @@ public class SspiHelper {
                         $results = @()
 
                         try {
+                            
                             if ($sshMethod -eq "ssh") {
+
+                    
+
                                 $knownRunasUser = ($isRunasNetonly -and $runasGSSAPIUser -and $runasGSSAPIUser -ne "(unknown)")
                                 $gssapiTarget = if ($knownRunasUser) { "$runasGSSAPIUser@$ComputerFQDN" } else { $ComputerFQDN }
 
@@ -1510,7 +1674,7 @@ public class SspiHelper {
                                     -RedirectStandardOutput $tmpOut -RedirectStandardError $tmpErr
                                 if ($proc.ExitCode -eq 0) {
                                     $stdout = (Get-Content $tmpOut -ErrorAction SilentlyContinue) -join ""
-                                    $results += "[+] $ComputerFQDN (plink/GSSAPI-current) | $stdout"
+                                    $results += "[+] $ComputerFQDN (SSH/plink/GSSAPI-current) | $stdout"
                                 }
 
                                 #  GSSAPI creds (runas) 
@@ -1547,7 +1711,7 @@ public class SspiHelper {
                                     $procGSS.WaitForExit(15000) | Out-Null
                                     if (-not $procGSS.HasExited) { try { $procGSS.Kill() } catch {} }
                                     if ($procGSS.ExitCode -eq 0) {
-                                        $results += "[+] $ComputerFQDN (plink/GSSAPI-creds) | $($stdoutTask.Result.Trim())"
+                                        $results += "[+] $ComputerFQDN (SSH/plink/GSSAPI-creds) | $($stdoutTask.Result.Trim())"
                                     }
                                 }
 
@@ -2013,8 +2177,12 @@ public class RdpShadowV5 {
                     }
 
                     if ($p -match "dcom" -or -not $p) {
-                        $psDCOM = [powershell]::Create()
+                        <# $psDCOM = [powershell]::Create()
                         $psDCOM.AddScript($sbDCOM).AddArgument($ComputerName).AddArgument($lhost).AddArgument($lport).AddArgument($timeout) | Out-Null
+                        $jobs.Add([PSCustomObject]@{ PS = $psDCOM; Handle = $psDCOM.BeginInvoke() }) #>
+
+                        $psDCOM = [powershell]::Create()
+                        $psDCOM.AddScript($sbDCOMNew).AddArgument($ComputerName) | Out-Null
                         $jobs.Add([PSCustomObject]@{ PS = $psDCOM; Handle = $psDCOM.BeginInvoke() })
                     }
 
@@ -2070,7 +2238,8 @@ public class RdpShadowV5 {
                         if ($pending.Count -gt 0) { Start-Sleep -Milliseconds 100 }
                     }
 
-                }).AddArgument($ComputerName).AddArgument($p).AddArgument($lhost).AddArgument($lport).AddArgument($timeout).AddArgument($ServiceName).AddArgument($scmCode).AddArgument($Username).AddArgument($Password).AddArgument($hasCreds).AddArgument($sshPath).AddArgument($plinkPath).AddArgument($sshMethod).AddArgument($isRunasNetonly).AddArgument($runasGSSAPIUser).AddArgument($ShadowTimeoutSeconds).AddArgument($rdpExePath).AddArgument($RdpPort).AddArgument($RdpDomain).AddArgument($rdpTmsMs).AddArgument($hostSessionId) | Out-Null
+                }).AddArgument($ComputerName).AddArgument($p).AddArgument($ServiceName).AddArgument($scmCode).AddArgument($Username).AddArgument($Password).AddArgument($hasCreds).AddArgument($sshPath).AddArgument($plinkPath).AddArgument($sshMethod).AddArgument($isRunasNetonly).AddArgument($runasGSSAPIUser).AddArgument($ShadowTimeoutSeconds).AddArgument($rdpExePath).AddArgument($RdpPort).AddArgument($RdpDomain).AddArgument($rdpTmsMs).AddArgument($hostSessionId) | Out-Null
+            # .AddArgument($ComputerName).AddArgument($p).AddArgument($lhost).AddArgument($lport).AddArgument($timeout).AddArgument($ServiceName).AddArgument($scmCode).AddArgument($Username).AddArgument($Password).AddArgument($hasCreds).AddArgument($sshPath).AddArgument($plinkPath).AddArgument($sshMethod).AddArgument($isRunasNetonly).AddArgument($runasGSSAPIUser).AddArgument($ShadowTimeoutSeconds).AddArgument($rdpExePath).AddArgument($RdpPort).AddArgument($RdpDomain).AddArgument($rdpTmsMs).AddArgument($hostSessionId) | Out-Null
 
             $rsOutput = [System.Management.Automation.PSDataCollection[PSObject]]::new()
 
@@ -2119,25 +2288,15 @@ public class RdpShadowV5 {
         $pending = [System.Collections.Generic.List[PSCustomObject]]::new()
         foreach ($rs in $runspaces) { $pending.Add($rs) }
 
-        $deadline = [DateTime]::Now.AddMilliseconds($timeout)
         while ($pending.Count -gt 0) {
             $done = @($pending | Where-Object { $_.Handle.IsCompleted })
             foreach ($rs in $done) {
-                try { $rs.PowerShell.EndInvoke($rs.Handle) } catch {}
+                try { $rs.PowerShell.EndInvoke($rs.Handle) } catch { }
+                $rs.Output | ForEach-Object { $_ }     # mantieni: fa emergere l'output dell'inner
                 $rs.PowerShell.Dispose()
                 $pending.Remove($rs) | Out-Null
             }
-            if ($pending.Count -gt 0) {
-                if ([DateTime]::Now -gt $deadline) {
-                    #Write-Host "Timeout: increase -timeout"
-                    foreach ($rs in $pending) {
-                        try { $rs.PowerShell.Stop() } catch {}
-                        $rs.PowerShell.Dispose()
-                    }
-                    break
-                }
-                Start-Sleep -Milliseconds 200
-            }
+            if ($pending.Count -gt 0) { Start-Sleep -Milliseconds 200 }
         }
     }
 
