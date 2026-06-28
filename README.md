@@ -111,6 +111,7 @@ MovementHound consolidates a set of standalone scripts (`Find-SCMAccess`, `Find-
 
 ## Installation
 
+### Clone and dot-source (recommended)
 ```powershell
 # 1) Grab the script
 git clone https://github.com/pol4ir/MovementHound.git
@@ -123,13 +124,18 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 . .\MovementHound.ps1
 ```
 
-Or load it straight into memory:
+### Load it straight into memory
 
 ```powershell
 IEX (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/pol4ir/MovementHound/main/MovementHound.ps1')
 ```
 
-The entry point is `Invoke-MovementHound`.
+### PowerShell Gallery
+
+```
+Install-Script -Name MovementHound
+. (Get-Command MovementHound).Source
+```
 
 ---
 
@@ -260,5 +266,3 @@ MovementHound is intended **exclusively for authorized security testing, researc
 ## License
 
 Released under the **GPL-3.0** license — see [`LICENSE`](LICENSE).
-
----
