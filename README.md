@@ -138,10 +138,10 @@ The entry point is `Invoke-MovementHound`.
 ### Full
 ```powershell
 # Enumerate access across the domain using all techniques
-Invoke-MovementHound -lhost <IP>
+Invoke-MovementHound
 
 # Same, but also emit BloodHound Legacy edges
-Invoke-MovementHound -lhost <IP> -bloodhound
+Invoke-MovementHound -bloodhound
 ```
 
 ### Technique-oriented
