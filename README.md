@@ -26,7 +26,7 @@
 - [Usage](#usage)
 - [Extending BloodHound](#extending-bloodhound)
 - [Output](#output)
-- [What's next(#Whatsn)
+- [What's next](#Whatsn)
 - [Detection & defensive notes](#detection--defensive-notes)
 - [Credits & acknowledgements](#credits--acknowledgements)
 - [Disclaimer](#disclaimer)
