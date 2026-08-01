@@ -26,7 +26,7 @@
 - [Usage](#usage)
 - [Extending BloodHound](#extending-bloodhound)
 - [Output](#output)
-- [Roadmap](#roadmap)
+- [What's next(#Whatsn)
 - [Detection & defensive notes](#detection--defensive-notes)
 - [Credits & acknowledgements](#credits--acknowledgements)
 - [Disclaimer](#disclaimer)
@@ -72,7 +72,7 @@ MovementHound was built for controlled environments and authorized assessments, 
 
 A few design consequences worth knowing up front:
 
-- **It is active and therefore noisy.** It opens handles, touches named pipes over SMB, and probes endpoints. This is intentional. (An OPSEC-leaning mode is on the [roadmap](#roadmap).)
+- **It is active and therefore noisy.** It opens handles, touches named pipes over SMB, and probes endpoints. This is intentional. (An OPSEC-leaning mode is on the [table](#Whatsn).)
 - **It runs modules in parallel** to keep runtimes sane, but reliability still costs time. Expect total runtime to scale primarily with the number of hosts in scope, leave it running.
 - **It requests the *minimum* access mask** each technique needs, not `*_ALL_ACCESS`. That is what lets it see paths that admin-centric checks (which probe for `SC_MANAGER_ALL_ACCESS`, `0xF003F`, and friends) report as "no access".
 
@@ -210,7 +210,7 @@ The point is the **before / after**. For example:
 
 ---
 
-## Roadmap
+## What's next
 
 In no particular order:
 
@@ -223,7 +223,7 @@ In no particular order:
 7. **Accurate RDP detection**, distinguish authentication success (NLA/CredSSP OK) from real authorization (an actual interactive session).
 8. **Credential support via parameters.**
 
-PRs welcome, this opened up to the community precisely so it can grow. I'm happy to integrate new techniques rather than reinvent wheels.
+PRs welcome, this opened up to the community precisely so it can grow.
 
 ---
 
