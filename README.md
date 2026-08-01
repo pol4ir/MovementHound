@@ -26,7 +26,7 @@
 - [Usage](#usage)
 - [Extending BloodHound](#extending-bloodhound)
 - [Output](#output)
-- [What's next](#Whatsn)
+- [What's next](#whats-next)
 - [Detection & defensive notes](#detection--defensive-notes)
 - [Credits & acknowledgements](#credits--acknowledgements)
 - [Disclaimer](#disclaimer)
@@ -72,7 +72,7 @@ MovementHound was built for controlled environments and authorized assessments, 
 
 A few design consequences worth knowing up front:
 
-- **It is active and therefore noisy.** It opens handles, touches named pipes over SMB, and probes endpoints. This is intentional. (An OPSEC-leaning mode is on the [table](#Whatsn).)
+- **It is active and therefore noisy.** It opens handles, touches named pipes over SMB, and probes endpoints. This is intentional. (An OPSEC-leaning mode is on the [table](#whats-next).)
 - **It runs modules in parallel** to keep runtimes sane, but reliability still costs time. Expect total runtime to scale primarily with the number of hosts in scope, leave it running.
 - **It requests the *minimum* access mask** each technique needs, not `*_ALL_ACCESS`. That is what lets it see paths that admin-centric checks (which probe for `SC_MANAGER_ALL_ACCESS`, `0xF003F`, and friends) report as "no access".
 
